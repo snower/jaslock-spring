@@ -1,6 +1,8 @@
 package io.github.snower.jaslock.spring;
 
 import io.github.snower.jaslock.*;
+import org.springframework.expression.EvaluationContext;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
 
 public class SlockTemplate {
     protected final SlockConfiguration configuration;
@@ -18,6 +20,8 @@ public class SlockTemplate {
             SlockReplsetClient replsetClient = new SlockReplsetClient(configuration.getHosts().toArray(hostsArray));
             if (configuration.getExecutorOption() != null) {
                 replsetClient.enableAsyncCallback(configuration.getExecutorOption());
+            } else {
+                client.enableAsyncCallback();
             }
             if (configuration.getDefaultTimeoutFlag() > 0) {
                 replsetClient.setDefaultTimeoutFlag(configuration.getDefaultTimeoutFlag());
@@ -33,6 +37,8 @@ public class SlockTemplate {
         SlockClient client = new SlockClient(configuration.getHost(), configuration.getPort());
         if (configuration.getExecutorOption() != null) {
             client.enableAsyncCallback(configuration.getExecutorOption());
+        } else {
+            client.enableAsyncCallback();
         }
         if (configuration.getDefaultTimeoutFlag() > 0) {
             client.setDefaultTimeoutFlag(configuration.getDefaultTimeoutFlag());
@@ -42,6 +48,8 @@ public class SlockTemplate {
         }
         client.tryOpen();
         this.client = client;
+
+        EvaluationContext ctx = new StandardEvaluationContext();
     }
 
     public synchronized void close() {

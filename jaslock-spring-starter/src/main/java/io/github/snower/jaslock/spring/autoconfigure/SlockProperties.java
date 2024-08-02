@@ -2,6 +2,7 @@ package io.github.snower.jaslock.spring.autoconfigure;
 
 import io.github.snower.jaslock.callback.ExecutorOption;
 import io.github.snower.jaslock.spring.SlockConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.net.URI;
@@ -11,7 +12,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @ConfigurationProperties(prefix = "spring.slock")
+@ConditionalOnProperty(value = "spring.slock.enabled", havingValue = "true", matchIfMissing = true)
 public class SlockProperties {
+    private boolean enabled;
     private String url = null;
     private String host = "127.0.0.1";
     private Integer port = 5658;
@@ -20,6 +23,14 @@ public class SlockProperties {
     private SlockExecutorOptionProperties executor = null;
     private Short defaultTimeoutFlag = 0;
     private Short defaultExpriedFlag = 0;
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
 
     public void setUrl(String url) {
         this.url = url;
@@ -51,6 +62,14 @@ public class SlockProperties {
 
     public List<String> getHosts() {
         return hosts;
+    }
+
+    public void setDatabaseId(Integer databaseId) {
+        this.databaseId = databaseId;
+    }
+
+    public Integer getDatabaseId() {
+        return databaseId;
     }
 
     public void setExecutor(SlockExecutorOptionProperties executor) {

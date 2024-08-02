@@ -1,5 +1,7 @@
 # Compiled class file
 *.class
+jaslock-spring/target/
+jaslock-spring-starter/target/
 
 # Log file
 *.log

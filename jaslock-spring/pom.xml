@@ -7,7 +7,7 @@
     <groupId>io.github.snower</groupId>
     <artifactId>jaslock-spring</artifactId>
     <version>1.0.0</version>
-    <packaging>pom</packaging>
+    <packaging>jar</packaging>
 
     <name>jaslock-spring</name>
     <description>High-performance distributed sync service and atomic DB. Provides good multi-core support through lock queues, high-performance asynchronous binary network protocols. Can be used for spikes, synchronization, event notification, concurrency control. https://github.com/snower/slock</description>
@@ -55,9 +55,27 @@
 
     <dependencies>
         <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.2.3</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
             <groupId>io.github.snower</groupId>
             <artifactId>jaslock</artifactId>
             <version>1.1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+            <version>1.8.13</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-expression</artifactId>
+            <version>5.0.5.RELEASE</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
