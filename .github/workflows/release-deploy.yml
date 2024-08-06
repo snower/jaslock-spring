@@ -1,0 +1,53 @@
+# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-maven
+
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+name: Java CD with Maven
+
+on:
+  release:
+    types: [ published, edited ]
+
+jobs:
+  build-deploy:
+
+    runs-on: ubuntu-latest
+
+    services:
+      # Label used to access the service container
+      slock:
+        # Docker Hub image
+        image: sujin190/slock
+        #
+        ports:
+          # Opens tcp port 5658 on the host and service container
+          - 5658:5658
+        options: >-
+          --health-cmd "slock-cli ping"
+          --health-interval 3s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up JDK 8
+      uses: actions/setup-java@v4.2.1
+      with:
+        java-version: '8'
+        distribution: 'temurin'
+        cache: maven
+        server-id: ossrh
+        server-username: MAVEN_USERNAME
+        server-password: MAVEN_PASSWORD
+        gpg-passphrase: MAVEN_GPG_PASSPHRASE # env variable for GPG private key passphrase
+        gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }} # Value of the GPG private key to import
+    - name: Publish package
+      run: mvn -B deploy -f pom.xml
+      env:
+        MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+        MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
+        MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
