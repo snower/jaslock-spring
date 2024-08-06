@@ -70,15 +70,18 @@ public class SlockTemplateTest {
     @Test
     public void testLockAspect() throws SlockException {
         aspectTestService.testLock(1);
+        aspectTestService.testLock(1);
     }
 
     @Test
     public void testMaxConcurrentFlowAspect() throws SlockException {
         aspectTestService.testMaxConcurrentFlow(1);
+        aspectTestService.testMaxConcurrentFlow(1);
     }
 
     @Test
     public void testTokenBucketFlowAspect() throws SlockException {
+        aspectTestService.testTokenBucketFlow(1);
         aspectTestService.testTokenBucketFlow(1);
     }
 
