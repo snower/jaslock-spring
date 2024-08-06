@@ -10,7 +10,7 @@
   <packaging>pom</packaging>
 
   <modules>
-    <module>jaslock-spring</module>
-    <module>jaslock-spring-starter</module>
+    <module>jaslock-spring-boot</module>
+    <module>jaslock-spring-boot-starter</module>
   </modules>
 </project>
