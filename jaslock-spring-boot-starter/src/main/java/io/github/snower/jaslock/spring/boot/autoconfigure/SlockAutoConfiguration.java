@@ -26,7 +26,7 @@ public class SlockAutoConfiguration {
         return new SlockSerializater.ObjectSerializater();
     }
 
-    @ConditionalOnMissingBean
+    @ConditionalOnMissingBean(value = SlockTemplate.class, name = "slockTemplate")
     @Bean(value = "slockTemplate", destroyMethod = "close")
     public SlockTemplate slockTemplate(SlockProperties slockProperties, SlockSerializater slockSerializater) {
         SlockTemplate slockTemplate = new SlockTemplate(slockProperties.buildConfiguration(), slockSerializater);
