@@ -15,7 +15,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 
 @Aspect
-@Order(Ordered.HIGHEST_PRECEDENCE + 80)
+@Order(Ordered.HIGHEST_PRECEDENCE + 7000)
 public class TokenBucketFlowAspect extends AbstractBaseAspect {
     public TokenBucketFlowAspect(SlockTemplate slockTemplate) {
         super(slockTemplate);
@@ -42,6 +42,9 @@ public class TokenBucketFlowAspect extends AbstractBaseAspect {
             }
         }
         String key = evaluateKey(templateKey, methodSignature.getMethod(), methodJoinPoint.getArgs(), methodJoinPoint.getThis());
+        if (isBlank(key)) {
+            return joinPoint.proceed();
+        }
         TokenBucketFlow tokenBucketFlow = tokenBucketFlowAnnotation.databaseId() >= 0 && tokenBucketFlowAnnotation.databaseId() < 127 ?
                 slockTemplate.selectDatabase(tokenBucketFlowAnnotation.databaseId())
                         .newTokenBucketFlow(key, tokenBucketFlowAnnotation.count(),

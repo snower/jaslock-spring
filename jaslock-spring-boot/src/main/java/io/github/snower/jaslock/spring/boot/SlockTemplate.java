@@ -7,15 +7,25 @@ import java.io.IOException;
 
 public class SlockTemplate {
     protected final SlockConfiguration configuration;
+    protected SlockSerializater serializater;
     protected volatile ISlockClient client;
 
-    public SlockTemplate(SlockConfiguration configuration) {
+    public SlockTemplate(SlockConfiguration configuration, SlockSerializater serializater) {
         this.configuration = configuration;
+        this.serializater = serializater;
         this.client = null;
     }
 
     public SlockConfiguration getConfiguration() {
         return configuration;
+    }
+
+    public SlockSerializater getSerializater() {
+        return serializater;
+    }
+
+    public void setSerializater(SlockSerializater serializater) {
+        this.serializater = serializater;
     }
 
     public synchronized void open() throws ClientUnconnectException, IOException {
@@ -181,18 +191,18 @@ public class SlockTemplate {
     }
 
     public <T> EventFuture<T> newEventFuture(byte[] eventKey) {
-        return new EventFuture<>(selectDatabase((byte) configuration.getDatabaseId()), eventKey);
+        return new EventFuture<>(serializater, selectDatabase((byte) configuration.getDatabaseId()), eventKey);
     }
 
     public <T> EventFuture<T> newEventFuture(String eventKey) {
-        return new EventFuture<>(selectDatabase((byte) configuration.getDatabaseId()), eventKey);
+        return new EventFuture<>(serializater, selectDatabase((byte) configuration.getDatabaseId()), eventKey);
     }
 
     public <T> EventFuture<T> newEventFuture(byte databaseId, byte[] eventKey) {
-        return new EventFuture<>(selectDatabase(databaseId), eventKey);
+        return new EventFuture<>(serializater, selectDatabase(databaseId), eventKey);
     }
 
     public <T> EventFuture<T> newEventFuture(byte databaseId, String eventKey) {
-        return new EventFuture<>(selectDatabase(databaseId), eventKey);
+        return new EventFuture<>(serializater, selectDatabase(databaseId), eventKey);
     }
 }

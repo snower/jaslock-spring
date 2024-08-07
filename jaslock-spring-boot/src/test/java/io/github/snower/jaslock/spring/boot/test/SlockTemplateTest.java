@@ -54,7 +54,7 @@ public class SlockTemplateTest {
     @Test
     public void testLock() throws IOException, SlockException {
         SlockTemplate slockTemplate = new SlockTemplate(SlockConfiguration.newBuilder()
-                .build());
+                .build(), new SlockSerializater.ObjectSerializater());
         slockTemplate.open();
         if (!slockTemplate.getClient().ping()) {
             throw new SlockException();
@@ -76,7 +76,7 @@ public class SlockTemplateTest {
     @Test
     public void testEventFuture() throws IOException, SlockException, ExecutionException, InterruptedException {
         SlockTemplate slockTemplate = new SlockTemplate(SlockConfiguration.newBuilder()
-                .build());
+                .build(), new SlockSerializater.ObjectSerializater());
         slockTemplate.open();
         try {
             EventFuture<String> eventFuture = slockTemplate.newEventFuture("testEventFuture");

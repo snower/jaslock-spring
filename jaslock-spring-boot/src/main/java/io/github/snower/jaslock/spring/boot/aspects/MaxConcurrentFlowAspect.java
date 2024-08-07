@@ -17,7 +17,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 
 @Aspect
-@Order(Ordered.HIGHEST_PRECEDENCE + 90)
+@Order(Ordered.HIGHEST_PRECEDENCE + 8000)
 public class MaxConcurrentFlowAspect extends AbstractBaseAspect {
     private static final Logger logger = LoggerFactory.getLogger(MaxConcurrentFlowAspect.class);
 
@@ -46,6 +46,9 @@ public class MaxConcurrentFlowAspect extends AbstractBaseAspect {
             }
         }
         String key = evaluateKey(templateKey, methodSignature.getMethod(), methodJoinPoint.getArgs(), methodJoinPoint.getThis());
+        if (isBlank(key)) {
+            return joinPoint.proceed();
+        }
         MaxConcurrentFlow maxConcurrentFlow = maxConcurrentFlowAnnotation.databaseId() >= 0 && maxConcurrentFlowAnnotation.databaseId() < 127 ?
                 slockTemplate.selectDatabase(maxConcurrentFlowAnnotation.databaseId())
                         .newMaxConcurrentFlow(key, maxConcurrentFlowAnnotation.count(),

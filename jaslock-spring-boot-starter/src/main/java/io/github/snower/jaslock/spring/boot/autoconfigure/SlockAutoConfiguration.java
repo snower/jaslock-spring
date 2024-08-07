@@ -1,6 +1,7 @@
 package io.github.snower.jaslock.spring.boot.autoconfigure;
 
 import io.github.snower.jaslock.exceptions.ClientUnconnectException;
+import io.github.snower.jaslock.spring.boot.SlockSerializater;
 import io.github.snower.jaslock.spring.boot.SlockTemplate;
 import io.github.snower.jaslock.spring.boot.aspects.IdempotentAspect;
 import io.github.snower.jaslock.spring.boot.aspects.LockAspect;
@@ -20,9 +21,15 @@ import java.io.IOException;
 @ConditionalOnProperty(value = "spring.slock.enabled", havingValue = "true", matchIfMissing = true)
 public class SlockAutoConfiguration {
     @ConditionalOnMissingBean
+    @Bean(value = "slockSerializater")
+    public SlockSerializater slockSerializater() {
+        return new SlockSerializater.ObjectSerializater();
+    }
+
+    @ConditionalOnMissingBean
     @Bean(value = "slockTemplate", destroyMethod = "close")
-    public SlockTemplate slockTemplate(SlockProperties slockProperties) {
-        SlockTemplate slockTemplate = new SlockTemplate(slockProperties.buildConfiguration());
+    public SlockTemplate slockTemplate(SlockProperties slockProperties, SlockSerializater slockSerializater) {
+        SlockTemplate slockTemplate = new SlockTemplate(slockProperties.buildConfiguration(), slockSerializater);
         try {
             slockTemplate.open();
         } catch (ClientUnconnectException | IOException e) {
@@ -55,7 +62,7 @@ public class SlockAutoConfiguration {
     @ConditionalOnBean(SlockTemplate.class)
     @ConditionalOnMissingBean
     @Bean
-    public IdempotentAspect idempotentAspect(SlockTemplate slockTemplate) {
-        return new IdempotentAspect(slockTemplate);
+    public IdempotentAspect idempotentAspect(SlockTemplate slockTemplate, SlockSerializater slockSerializater) {
+        return new IdempotentAspect(slockTemplate, slockSerializater);
     }
 }

@@ -13,14 +13,17 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
 public class EventFuture<T> implements Future<T>, Closeable {
+    protected final SlockSerializater serializater;
     protected final Event event;
     protected boolean isSetResulted = false;
 
-    public EventFuture(SlockDatabase database, byte[] eventKey) {
+    public EventFuture(SlockSerializater serializater, SlockDatabase database, byte[] eventKey) {
+        this.serializater = serializater;
         this.event = new Event(database, eventKey, 120, 300, false);
     }
 
-    public EventFuture(SlockDatabase database, String eventKey) {
+    public EventFuture(SlockSerializater serializater, SlockDatabase database, String eventKey) {
+        this.serializater = serializater;
         this.event = new Event(database, eventKey, 120, 300, false);
     }
 
@@ -93,14 +96,14 @@ public class EventFuture<T> implements Future<T>, Closeable {
         if (event.getCurrentLockData() == null) return null;
         byte[] lockData = event.getCurrentLockData().getDataAsBytes();
         if (lockData == null) return null;
-        try (ObjectInputStream objectInputStream = new ObjectInputStream(new ByteArrayInputStream(lockData))) {
-            Object eventResult = objectInputStream.readObject();
+        try  {
+            Object eventResult = serializater.deserialize(lockData, new SlockSerializater.TypeReference<EventResult<T>>() {});
             if (!(eventResult instanceof EventResult)) return null;
             if (((EventResult<?>) eventResult).getException() != null) {
                 throw new ExecutionException(((EventResult<?>) eventResult).getException());
             }
             return (T) ((EventResult<?>) eventResult).getResult();
-        } catch (IOException | ClassNotFoundException e) {
+        } catch (IOException e) {
             throw new ExecutionException(e);
         }
     }
@@ -116,14 +119,8 @@ public class EventFuture<T> implements Future<T>, Closeable {
     public void setResult(T result, long expried, TimeUnit unit) throws IOException, SlockException {
         short seconds = (short) unit.toSeconds(expried);
         event.setExpried(seconds);
-
-        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream()) {
-            try (ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream)) {
-                EventResult<T> eventResult = new EventResult<>(result);
-                objectOutputStream.writeObject(eventResult);
-            }
-            event.set(byteArrayOutputStream.toByteArray());
-        }
+        EventResult<T> eventResult = new EventResult<>(result);
+        event.set(serializater.serializate(eventResult));
         isSetResulted = true;
     }
 
@@ -141,14 +138,8 @@ public class EventFuture<T> implements Future<T>, Closeable {
     public void setException(Throwable exception, long expried, TimeUnit unit) throws SlockException, IOException {
         short seconds = (short) unit.toSeconds(expried);
         event.setExpried(seconds);
-
-        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream()) {
-            try (ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream)) {
-                EventResult<T> eventResult = new EventResult<>(exception);
-                objectOutputStream.writeObject(eventResult);
-            }
-            event.set(byteArrayOutputStream.toByteArray());
-        }
+        EventResult<T> eventResult = new EventResult<>(exception);
+        event.set(serializater.serializate(eventResult));
         isSetResulted = true;
     }
 

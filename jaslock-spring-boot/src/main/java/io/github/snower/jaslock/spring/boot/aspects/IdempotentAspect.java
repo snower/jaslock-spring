@@ -6,6 +6,7 @@ import io.github.snower.jaslock.datas.LockSetData;
 import io.github.snower.jaslock.exceptions.LockTimeoutException;
 import io.github.snower.jaslock.exceptions.SlockException;
 import io.github.snower.jaslock.spring.boot.AbstractBaseAspect;
+import io.github.snower.jaslock.spring.boot.SlockSerializater;
 import io.github.snower.jaslock.spring.boot.SlockTemplate;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -21,12 +22,15 @@ import org.springframework.core.annotation.Order;
 import java.io.*;
 
 @Aspect
-@Order(Ordered.HIGHEST_PRECEDENCE + 99)
+@Order(Ordered.HIGHEST_PRECEDENCE + 9000)
 public class IdempotentAspect extends AbstractBaseAspect {
     private static final Logger logger = LoggerFactory.getLogger(LockAspect.class);
 
-    public IdempotentAspect(SlockTemplate slockTemplate) {
+    private final SlockSerializater serializater;
+
+    public IdempotentAspect(SlockTemplate slockTemplate, SlockSerializater serializater) {
         super(slockTemplate);
+        this.serializater = serializater == null ? slockTemplate.getSerializater() : serializater;
     }
 
     @Pointcut("@annotation(io.github.snower.jaslock.spring.boot.annotations.Idempotent)")
@@ -50,6 +54,9 @@ public class IdempotentAspect extends AbstractBaseAspect {
             }
         }
         String key = evaluateKey(templateKey, methodSignature.getMethod(), methodJoinPoint.getArgs(), methodJoinPoint.getThis());
+        if (isBlank(key)) {
+            return joinPoint.proceed();
+        }
         Lock lock = idempotentAnnotation.databaseId() >= 0 && idempotentAnnotation.databaseId() < 127 ?
                 slockTemplate.selectDatabase(idempotentAnnotation.databaseId())
                         .newLock(key, idempotentAnnotation.timeout(), idempotentAnnotation.expried()) :
@@ -95,13 +102,8 @@ public class IdempotentAspect extends AbstractBaseAspect {
     }
 
     private boolean updateResult(Lock lock, Object result) throws IOException, SlockException {
-        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream()) {
-            try (ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream)) {
-                IdempotentResult idempotentResult = new IdempotentResult(result);
-                objectOutputStream.writeObject(idempotentResult);
-            }
-            lock.releaseHeadRetoLockWait(new LockSetData(byteArrayOutputStream.toByteArray()));
-        }
+        IdempotentResult idempotentResult = new IdempotentResult(result);
+        lock.releaseHeadRetoLockWait(new LockSetData(serializater.serializate(idempotentResult)));
         return true;
     }
 
@@ -109,11 +111,9 @@ public class IdempotentAspect extends AbstractBaseAspect {
         if (lock.getCurrentLockData() == null) return null;
         byte[] lockData = lock.getCurrentLockData().getDataAsBytes();
         if (lockData == null) return null;
-        try (ObjectInputStream objectInputStream = new ObjectInputStream(new ByteArrayInputStream(lockData))) {
-            Object idempotentResult = objectInputStream.readObject();
-            if (!(idempotentResult instanceof IdempotentResult)) return null;
-            return ((IdempotentResult) idempotentResult).getResult();
-        }
+        Object idempotentResult = serializater.deserialize(lockData, IdempotentResult.class);
+        if (!(idempotentResult instanceof IdempotentResult)) return null;
+        return ((IdempotentResult) idempotentResult).getResult();
     }
 
     private static class IdempotentResult implements Serializable {

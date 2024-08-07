@@ -17,7 +17,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 
 @Aspect
-@Order(Ordered.HIGHEST_PRECEDENCE + 100)
+@Order(Ordered.HIGHEST_PRECEDENCE + 10000)
 public class LockAspect extends AbstractBaseAspect {
     private static final Logger logger = LoggerFactory.getLogger(LockAspect.class);
 
@@ -45,6 +45,9 @@ public class LockAspect extends AbstractBaseAspect {
             }
         }
         String key = evaluateKey(templateKey, methodSignature.getMethod(), methodJoinPoint.getArgs(), methodJoinPoint.getThis());
+        if (isBlank(key)) {
+            return joinPoint.proceed();
+        }
         Lock lock = lockAnnotation.databaseId() >= 0 && lockAnnotation.databaseId() < 127 ?
                 slockTemplate.selectDatabase(lockAnnotation.databaseId())
                         .newLock(key, lockAnnotation.timeout(), lockAnnotation.expried()) :
