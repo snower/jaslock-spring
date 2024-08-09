@@ -11,7 +11,7 @@ High-performance distributed sync service and atomic DB. Provides good multi-cor
 <dependency>
     <groupId>io.github.snower</groupId>
     <artifactId>jaslock-spring-boot-starter</artifactId>
-    <version>1.0.0</version>
+    <version>0.1.0</version>
 </dependency>
 ```
 # License
