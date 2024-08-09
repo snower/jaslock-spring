@@ -6,7 +6,7 @@
 
   <groupId>io.github.snower</groupId>
   <artifactId>jaslock-spring-parent</artifactId>
-  <version>1.0.0</version>
+  <version>0.1.0</version>
   <packaging>pom</packaging>
 
   <modules>
