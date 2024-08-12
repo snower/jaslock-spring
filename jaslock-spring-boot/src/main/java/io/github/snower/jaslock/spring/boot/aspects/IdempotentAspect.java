@@ -57,11 +57,11 @@ public class IdempotentAspect extends AbstractBaseAspect {
         if (isBlank(key)) {
             return joinPoint.proceed();
         }
+        int timeout = idempotentAnnotation.timeout() | (ICommand.TIMEOUT_FLAG_TIMEOUT_WHEN_CONTAINS_DATA << 16);
+        int expried = idempotentAnnotation.expried();
         Lock lock = idempotentAnnotation.databaseId() >= 0 && idempotentAnnotation.databaseId() < 127 ?
-                slockTemplate.selectDatabase(idempotentAnnotation.databaseId())
-                        .newLock(key, idempotentAnnotation.timeout(), idempotentAnnotation.expried()) :
-                slockTemplate.newLock(key, idempotentAnnotation.timeout(), idempotentAnnotation.expried());
-        lock.setTimeoutFlag((short) ICommand.TIMEOUT_FLAG_TIMEOUT_WHEN_CONTAINS_DATA);
+                slockTemplate.selectDatabase(idempotentAnnotation.databaseId()).newLock(key, timeout, expried) :
+                slockTemplate.newLock(key, timeout, expried);
         try {
             lock.acquire();
             boolean isUpdateResult = false;
@@ -103,6 +103,7 @@ public class IdempotentAspect extends AbstractBaseAspect {
 
     private boolean updateResult(Lock lock, Object result) throws IOException, SlockException {
         IdempotentResult idempotentResult = new IdempotentResult(result);
+        lock.setExpriedFlag((short) (lock.getExpriedFlag() | ((short) ICommand.EXPRIED_FLAG_ZEOR_AOF_TIME)));
         lock.releaseHeadRetoLockWait(new LockSetData(serializater.serializate(idempotentResult)));
         return true;
     }

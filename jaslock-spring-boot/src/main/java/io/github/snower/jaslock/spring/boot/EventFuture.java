@@ -2,6 +2,7 @@ package io.github.snower.jaslock.spring.boot;
 
 import io.github.snower.jaslock.Event;
 import io.github.snower.jaslock.SlockDatabase;
+import io.github.snower.jaslock.commands.ICommand;
 import io.github.snower.jaslock.exceptions.EventWaitTimeoutException;
 import io.github.snower.jaslock.exceptions.SlockException;
 
@@ -19,12 +20,12 @@ public class EventFuture<T> implements Future<T>, Closeable {
 
     public EventFuture(SlockSerializater serializater, SlockDatabase database, byte[] eventKey) {
         this.serializater = serializater;
-        this.event = new Event(database, eventKey, 120, 300, false);
+        this.event = new Event(database, eventKey, 5, 300, false);
     }
 
     public EventFuture(SlockSerializater serializater, SlockDatabase database, String eventKey) {
         this.serializater = serializater;
-        this.event = new Event(database, eventKey, 120, 300, false);
+        this.event = new Event(database, eventKey, 5, 300, false);
     }
 
     @Override
@@ -119,6 +120,7 @@ public class EventFuture<T> implements Future<T>, Closeable {
     public void setResult(T result, long expried, TimeUnit unit) throws IOException, SlockException {
         short seconds = (short) unit.toSeconds(expried);
         event.setExpried(seconds);
+        event.setExpriedFlag((short) ICommand.EXPRIED_FLAG_ZEOR_AOF_TIME);
         EventResult<T> eventResult = new EventResult<>(result);
         event.set(serializater.serializate(eventResult));
         isSetResulted = true;
@@ -127,6 +129,7 @@ public class EventFuture<T> implements Future<T>, Closeable {
     public void setResult(long expried, TimeUnit unit) throws SlockException {
         short seconds = (short) unit.toSeconds(expried);
         event.setExpried(seconds);
+        event.setExpriedFlag((short) ICommand.EXPRIED_FLAG_ZEOR_AOF_TIME);
         event.set();
         isSetResulted = true;
     }
@@ -138,6 +141,7 @@ public class EventFuture<T> implements Future<T>, Closeable {
     public void setException(Throwable exception, long expried, TimeUnit unit) throws SlockException, IOException {
         short seconds = (short) unit.toSeconds(expried);
         event.setExpried(seconds);
+        event.setExpriedFlag((short) ICommand.EXPRIED_FLAG_ZEOR_AOF_TIME);
         EventResult<T> eventResult = new EventResult<>(exception);
         event.set(serializater.serializate(eventResult));
         isSetResulted = true;
