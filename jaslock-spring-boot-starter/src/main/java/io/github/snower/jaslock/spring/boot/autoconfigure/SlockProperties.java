@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 @ConfigurationProperties(prefix = "spring.slock")
 @ConditionalOnProperty(value = "spring.slock.enabled", havingValue = "true", matchIfMissing = true)
 public class SlockProperties {
-    private boolean enabled;
+    private boolean enabled = true;
     private String url = null;
     private String host = "127.0.0.1";
     private Integer port = 5658;
@@ -97,10 +97,12 @@ public class SlockProperties {
     }
 
     public SlockConfiguration buildConfiguration() {
-        if (url != null && !url.isEmpty() && url.startsWith("slock://")) {
+        if (url != null && !url.isEmpty()) {
+            if (!url.startsWith("slock://")) throw new IllegalArgumentException("slock unknown url schema");
+
             try {
                 URI uri = new URI(url);
-                List<String> hosts = Arrays.stream(uri.getHost().split(",")).map(String::trim)
+                List<String> hosts = Arrays.stream(uri.getAuthority().split(",")).map(String::trim)
                         .filter(s -> !s.isEmpty())
                         .collect(Collectors.toList());
                 String queryString = uri.getQuery();
@@ -128,7 +130,7 @@ public class SlockProperties {
                             Short.parseShort(params.getOrDefault("defaultTimeoutFlag", "0")),
                             Short.parseShort(params.getOrDefault("defaultExpriedFlag", "0")));
                 }
-                return new SlockConfiguration(hosts.isEmpty() ? "127.0.0.1" : hosts.get(0), uri.getPort(), null,
+                return new SlockConfiguration(uri.getHost() == null ? "127.0.0.1" : uri.getHost(), uri.getPort(), null,
                         Integer.parseInt(params.getOrDefault("database", "0")), executorOption,
                         Short.parseShort(params.getOrDefault("defaultTimeoutFlag", "0")),
                         Short.parseShort(params.getOrDefault("defaultExpriedFlag", "0")));
