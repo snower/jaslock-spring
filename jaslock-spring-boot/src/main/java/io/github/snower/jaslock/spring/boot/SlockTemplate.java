@@ -36,7 +36,7 @@ public class SlockTemplate {
             if (configuration.getExecutorOption() != null) {
                 replsetClient.enableAsyncCallback(configuration.getExecutorOption());
             } else {
-                client.enableAsyncCallback();
+                replsetClient.enableAsyncCallback();
             }
             if (configuration.getDefaultTimeoutFlag() > 0) {
                 replsetClient.setDefaultTimeoutFlag(configuration.getDefaultTimeoutFlag());
