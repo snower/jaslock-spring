@@ -6,7 +6,7 @@
 
     <groupId>io.github.snower</groupId>
     <artifactId>jaslock-spring-boot</artifactId>
-    <version>0.1.3</version>
+    <version>0.1.4</version>
     <packaging>jar</packaging>
 
     <name>jaslock-spring-boot</name>
@@ -70,6 +70,12 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-expression</artifactId>
+            <version>5.0.5.RELEASE</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-tx</artifactId>
             <version>5.0.5.RELEASE</version>
             <scope>provided</scope>
         </dependency>
