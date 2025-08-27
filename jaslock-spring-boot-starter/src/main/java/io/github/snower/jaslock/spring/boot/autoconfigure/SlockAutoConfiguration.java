@@ -3,16 +3,15 @@ package io.github.snower.jaslock.spring.boot.autoconfigure;
 import io.github.snower.jaslock.exceptions.ClientUnconnectException;
 import io.github.snower.jaslock.spring.boot.SlockSerializater;
 import io.github.snower.jaslock.spring.boot.SlockTemplate;
-import io.github.snower.jaslock.spring.boot.aspects.IdempotentAspect;
-import io.github.snower.jaslock.spring.boot.aspects.LockAspect;
-import io.github.snower.jaslock.spring.boot.aspects.MaxConcurrentFlowAspect;
-import io.github.snower.jaslock.spring.boot.aspects.TokenBucketFlowAspect;
+import io.github.snower.jaslock.spring.boot.aspects.*;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.io.IOException;
 
@@ -43,6 +42,14 @@ public class SlockAutoConfiguration {
     @Bean
     public LockAspect lockAspect(SlockTemplate slockTemplate) {
         return new LockAspect(slockTemplate);
+    }
+
+    @ConditionalOnClass(TransactionSynchronizationManager.class)
+    @ConditionalOnBean(SlockTemplate.class)
+    @ConditionalOnMissingBean
+    @Bean
+    public LockWithTransactionAspect lockWithTransactionAspect(SlockTemplate slockTemplate) {
+        return new LockWithTransactionAspect(slockTemplate);
     }
 
     @ConditionalOnBean(SlockTemplate.class)

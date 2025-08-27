@@ -94,6 +94,14 @@ public class SlockTemplate {
         return selectDatabase((byte) configuration.getDatabaseId()).newLock(lockKey, timeout, expried);
     }
 
+    public TransactionLock newTransactionLock(String lockKey, int timeout, int expried) {
+        return new TransactionLock(getClient().selectDatabase((byte) 0), lockKey, timeout, expried);
+    }
+
+    public TransactionLock newTransactionLock(byte[] lockKey, int timeout, int expried) {
+        return new TransactionLock(getClient().selectDatabase((byte) 0), lockKey, timeout, expried);
+    }
+
     public Event newEvent(byte[] eventKey, int timeout, int expried, boolean defaultSeted) {
         return selectDatabase((byte) configuration.getDatabaseId()).newEvent(eventKey, timeout, expried, defaultSeted);
     }

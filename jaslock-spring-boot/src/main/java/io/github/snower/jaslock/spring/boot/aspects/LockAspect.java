@@ -16,6 +16,8 @@ import org.springframework.aop.aspectj.MethodInvocationProceedingJoinPoint;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 
+import java.lang.reflect.Method;
+
 @Aspect
 @Order(Ordered.HIGHEST_PRECEDENCE + 10000)
 public class LockAspect extends AbstractBaseAspect {
@@ -32,26 +34,37 @@ public class LockAspect extends AbstractBaseAspect {
     public Object around(ProceedingJoinPoint joinPoint) throws Throwable {
         MethodInvocationProceedingJoinPoint methodJoinPoint = (MethodInvocationProceedingJoinPoint) joinPoint;
         MethodSignature methodSignature = (MethodSignature) methodJoinPoint.getSignature();
-        io.github.snower.jaslock.spring.boot.annotations.Lock lockAnnotation = methodSignature.getMethod().getAnnotation(io.github.snower.jaslock.spring.boot.annotations.Lock.class);
-        if (lockAnnotation == null) {
-            throw new IllegalArgumentException("unknown Lock annotation");
-        }
-
-        String templateKey = lockAnnotation.value();
-        if (isBlank(templateKey)) {
-            templateKey = lockAnnotation.key();
-            if (isBlank(templateKey)) {
-                throw new IllegalArgumentException("key is empty");
+        Method method = methodSignature.getMethod();
+        KeyEvaluate keyEvaluate = keyEvaluateCache.get(method);
+        if (keyEvaluate == null) {
+            io.github.snower.jaslock.spring.boot.annotations.Lock lockAnnotation = methodSignature.getMethod().getAnnotation(io.github.snower.jaslock.spring.boot.annotations.Lock.class);
+            if (lockAnnotation == null) {
+                throw new IllegalArgumentException("unknown Lock annotation");
             }
+            String templateKey = lockAnnotation.value();
+            if (isBlank(templateKey)) {
+                templateKey = lockAnnotation.key();
+                if (isBlank(templateKey)) {
+                    throw new IllegalArgumentException("key is empty");
+                }
+            }
+            keyEvaluate = compileKeyEvaluate(methodSignature.getMethod(), templateKey);
+            keyEvaluate.setTargetParameter(lockAnnotation);
+            int timeout = lockAnnotation.timeout();
+            int expried = lockAnnotation.expried();
+            byte databaseId = lockAnnotation.databaseId();
+            if (databaseId >= 0 && databaseId < 127) {
+                keyEvaluate.setTargetInstanceBuilder(key -> slockTemplate.selectDatabase(databaseId)
+                        .newLock((String) key, timeout, expried));
+            }
+            keyEvaluate.setTargetInstanceBuilder(key -> slockTemplate.newLock((String) key, timeout, expried));
         }
-        String key = evaluateKey(templateKey, methodSignature.getMethod(), methodJoinPoint.getArgs(), methodJoinPoint.getThis());
-        if (isBlank(key)) {
-            return joinPoint.proceed();
-        }
-        Lock lock = lockAnnotation.databaseId() >= 0 && lockAnnotation.databaseId() < 127 ?
-                slockTemplate.selectDatabase(lockAnnotation.databaseId())
-                        .newLock(key, lockAnnotation.timeout(), lockAnnotation.expried()) :
-                slockTemplate.newLock(key, lockAnnotation.timeout(), lockAnnotation.expried());
+        String key = keyEvaluate.evaluate(methodSignature.getMethod(), methodJoinPoint.getArgs(), methodJoinPoint.getThis());
+        return execute(joinPoint,  keyEvaluate, key);
+    }
+
+    public Object execute(ProceedingJoinPoint joinPoint, KeyEvaluate keyEvaluate, String key) throws Throwable {
+        Lock lock = (Lock) keyEvaluate.buildTargetInstance(key);
         try {
             lock.acquire();
             try {
@@ -60,10 +73,12 @@ public class LockAspect extends AbstractBaseAspect {
                 try {
                     lock.release();
                 } catch (Exception e) {
-                    logger.warn("Slock LockAspect release {} error {}", templateKey, e, e);
+                    logger.warn("LockAspect release {} error {}", key, e, e);
                 }
             }
         } catch (LockTimeoutException e) {
+            io.github.snower.jaslock.spring.boot.annotations.Lock lockAnnotation =
+                    (io.github.snower.jaslock.spring.boot.annotations.Lock) keyEvaluate.getTargetParameter();
             if (!lockAnnotation.timeoutException().isInstance(e)) {
                 throw lockAnnotation.timeoutException().getConstructor(String.class, Throwable.class)
                         .newInstance(e.getMessage(), e);
@@ -71,6 +86,8 @@ public class LockAspect extends AbstractBaseAspect {
                 throw e;
             }
         } catch (SlockException e) {
+            io.github.snower.jaslock.spring.boot.annotations.Lock lockAnnotation =
+                    (io.github.snower.jaslock.spring.boot.annotations.Lock) keyEvaluate.getTargetParameter();
             if (!lockAnnotation.exception().isInstance(e)) {
                 throw lockAnnotation.exception().getConstructor(String.class, Throwable.class)
                         .newInstance(e.getMessage(), e);

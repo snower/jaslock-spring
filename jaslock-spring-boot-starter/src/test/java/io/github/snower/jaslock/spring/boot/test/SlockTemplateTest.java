@@ -135,18 +135,34 @@ public class SlockTemplateTest {
     public void testLockAspect() throws SlockException {
         aspectTestService.testLock(1);
         aspectTestService.testLock(1);
+        aspectTestService.testLockConstKey(1);
+        aspectTestService.testLockConstKey(1);
+        aspectTestService.testLockFastKey(1);
+        aspectTestService.testLockFastKey(1);
     }
+    @Test
+    public void testLockWithTransaction() throws SlockException {
+        aspectTestService.testLockWithTransaction(1);
+        aspectTestService.testLockWithTransaction(1);
+        aspectTestService.testLockWithTransactionFastKey(1);
+        aspectTestService.testLockWithTransactionFastKey(1);
+    }
+
 
     @Test
     public void testMaxConcurrentFlowAspect() throws SlockException {
         aspectTestService.testMaxConcurrentFlow(1);
         aspectTestService.testMaxConcurrentFlow(1);
+        aspectTestService.testMaxConcurrentFlowFastKey(1);
+        aspectTestService.testMaxConcurrentFlowFastKey(1);
     }
 
     @Test
     public void testTokenBucketFlowAspect() throws SlockException {
         aspectTestService.testTokenBucketFlow(1);
         aspectTestService.testTokenBucketFlow(1);
+        aspectTestService.testTokenBucketFlowFastKey(1);
+        aspectTestService.testTokenBucketFlowFastKey(1);
     }
 
     @Test
@@ -154,5 +170,8 @@ public class SlockTemplateTest {
         String value1 = aspectTestService.testIdempotent(1);
         String value2 = aspectTestService.testIdempotent(1);
         org.junit.Assert.assertEquals(value1, value2);
+        String value3 = aspectTestService.testIdempotentFastKey(1);
+        String value4 = aspectTestService.testIdempotentFastKey(1);
+        org.junit.Assert.assertEquals(value3, value4);
     }
 }

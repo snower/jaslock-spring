@@ -14,6 +14,8 @@ import org.springframework.aop.aspectj.MethodInvocationProceedingJoinPoint;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 
+import java.lang.reflect.Method;
+
 @Aspect
 @Order(Ordered.HIGHEST_PRECEDENCE + 7000)
 public class TokenBucketFlowAspect extends AbstractBaseAspect {
@@ -28,33 +30,45 @@ public class TokenBucketFlowAspect extends AbstractBaseAspect {
     public Object around(ProceedingJoinPoint joinPoint) throws Throwable {
         MethodInvocationProceedingJoinPoint methodJoinPoint = (MethodInvocationProceedingJoinPoint) joinPoint;
         MethodSignature methodSignature = (MethodSignature) methodJoinPoint.getSignature();
-        io.github.snower.jaslock.spring.boot.annotations.TokenBucketFlow tokenBucketFlowAnnotation = methodSignature.getMethod()
-                .getAnnotation(io.github.snower.jaslock.spring.boot.annotations.TokenBucketFlow.class);
-        if (tokenBucketFlowAnnotation == null) {
-            throw new IllegalArgumentException("unknown TokenBucketFlow annotation");
-        }
-
-        String templateKey = tokenBucketFlowAnnotation.value();
-        if (isBlank(templateKey)) {
-            templateKey = tokenBucketFlowAnnotation.key();
-            if (isBlank(templateKey)) {
-                throw new IllegalArgumentException("key is empty");
+        Method method = methodSignature.getMethod();
+        KeyEvaluate keyEvaluate = keyEvaluateCache.get(method);
+        if (keyEvaluate == null) {
+            io.github.snower.jaslock.spring.boot.annotations.TokenBucketFlow tokenBucketFlowAnnotation = methodSignature.getMethod()
+                    .getAnnotation(io.github.snower.jaslock.spring.boot.annotations.TokenBucketFlow.class);
+            if (tokenBucketFlowAnnotation == null) {
+                throw new IllegalArgumentException("unknown TokenBucketFlow annotation");
             }
+            String templateKey = tokenBucketFlowAnnotation.value();
+            if (isBlank(templateKey)) {
+                templateKey = tokenBucketFlowAnnotation.key();
+                if (isBlank(templateKey)) {
+                    throw new IllegalArgumentException("key is empty");
+                }
+            }
+            keyEvaluate = compileKeyEvaluate(methodSignature.getMethod(), templateKey);
+            keyEvaluate.setTargetParameter(tokenBucketFlowAnnotation);
+            int timeout = tokenBucketFlowAnnotation.timeout();
+            double period = tokenBucketFlowAnnotation.period();
+            short count = tokenBucketFlowAnnotation.count();
+            byte databaseId = tokenBucketFlowAnnotation.databaseId();
+            if (databaseId >= 0 && databaseId < 127) {
+                keyEvaluate.setTargetInstanceBuilder(key -> slockTemplate.selectDatabase(databaseId)
+                        .newTokenBucketFlow((String) key, count, timeout, period));
+            }
+            keyEvaluate.setTargetInstanceBuilder(key -> slockTemplate.newTokenBucketFlow((String) key, count, timeout, period));
         }
-        String key = evaluateKey(templateKey, methodSignature.getMethod(), methodJoinPoint.getArgs(), methodJoinPoint.getThis());
-        if (isBlank(key)) {
-            return joinPoint.proceed();
-        }
-        TokenBucketFlow tokenBucketFlow = tokenBucketFlowAnnotation.databaseId() >= 0 && tokenBucketFlowAnnotation.databaseId() < 127 ?
-                slockTemplate.selectDatabase(tokenBucketFlowAnnotation.databaseId())
-                        .newTokenBucketFlow(key, tokenBucketFlowAnnotation.count(),
-                                tokenBucketFlowAnnotation.timeout(), tokenBucketFlowAnnotation.period()) :
-                slockTemplate.newTokenBucketFlow(key, tokenBucketFlowAnnotation.count(),
-                        tokenBucketFlowAnnotation.timeout(), tokenBucketFlowAnnotation.period());
+        String key = keyEvaluate.evaluate(methodSignature.getMethod(), methodJoinPoint.getArgs(), methodJoinPoint.getThis());
+        return execute(joinPoint,  keyEvaluate, key);
+    }
+
+    public Object execute(ProceedingJoinPoint joinPoint, KeyEvaluate keyEvaluate, String key) throws Throwable {
+        TokenBucketFlow tokenBucketFlow = (TokenBucketFlow) keyEvaluate.buildTargetInstance(key);
         try {
             tokenBucketFlow.acquire();
             return joinPoint.proceed();
         } catch (LockTimeoutException e) {
+            io.github.snower.jaslock.spring.boot.annotations.TokenBucketFlow tokenBucketFlowAnnotation =
+                    (io.github.snower.jaslock.spring.boot.annotations.TokenBucketFlow) keyEvaluate.getTargetParameter();
             if (!tokenBucketFlowAnnotation.timeoutException().isInstance(e)) {
                 throw tokenBucketFlowAnnotation.timeoutException().getConstructor(String.class, Throwable.class)
                         .newInstance(e.getMessage(), e);
@@ -62,6 +76,8 @@ public class TokenBucketFlowAspect extends AbstractBaseAspect {
                 throw e;
             }
         } catch (SlockException e) {
+            io.github.snower.jaslock.spring.boot.annotations.TokenBucketFlow tokenBucketFlowAnnotation =
+                    (io.github.snower.jaslock.spring.boot.annotations.TokenBucketFlow) keyEvaluate.getTargetParameter();
             if (!tokenBucketFlowAnnotation.exception().isInstance(e)) {
                 throw tokenBucketFlowAnnotation.exception().getConstructor(String.class, Throwable.class)
                         .newInstance(e.getMessage(), e);
