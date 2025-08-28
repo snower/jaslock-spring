@@ -176,10 +176,14 @@ public class SlockTemplateTest {
     @Test
     public void testIdempotentAspect() throws SlockException {
         String value1 = aspectTestService.testIdempotent(1);
+        org.junit.Assert.assertTrue(value1 != null && Math.abs(System.currentTimeMillis() - Long.parseLong(value1)) < 10000);
         String value2 = aspectTestService.testIdempotent(1);
+        org.junit.Assert.assertTrue(value2 != null && Math.abs(System.currentTimeMillis() - Long.parseLong(value2)) < 10000);
         org.junit.Assert.assertEquals(value1, value2);
         String value3 = aspectTestService.testIdempotentFastKey(1);
+        org.junit.Assert.assertTrue(value3 != null && Math.abs(System.currentTimeMillis() - Long.parseLong(value3)) < 10000);
         String value4 = aspectTestService.testIdempotentFastKey(1);
+        org.junit.Assert.assertTrue(value4 != null && Math.abs(System.currentTimeMillis() - Long.parseLong(value4)) < 10000);
         org.junit.Assert.assertEquals(value3, value4);
     }
 }
