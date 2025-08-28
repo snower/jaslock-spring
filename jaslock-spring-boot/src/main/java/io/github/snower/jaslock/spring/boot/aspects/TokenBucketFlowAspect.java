@@ -47,7 +47,7 @@ public class TokenBucketFlowAspect extends AbstractBaseAspect {
             }
             keyEvaluate = compileKeyEvaluate(methodSignature.getMethod(), templateKey);
             keyEvaluate.setTargetParameter(tokenBucketFlowAnnotation);
-            int timeout = tokenBucketFlowAnnotation.timeout();
+            int timeout = tokenBucketFlowAnnotation.timeout() | (tokenBucketFlowAnnotation.timeoutFlag() << 16);
             double period = tokenBucketFlowAnnotation.period();
             short count = tokenBucketFlowAnnotation.count();
             byte databaseId = tokenBucketFlowAnnotation.databaseId();
@@ -58,10 +58,6 @@ public class TokenBucketFlowAspect extends AbstractBaseAspect {
             keyEvaluate.setTargetInstanceBuilder(key -> slockTemplate.newTokenBucketFlow((String) key, count, timeout, period));
         }
         String key = keyEvaluate.evaluate(methodSignature.getMethod(), methodJoinPoint.getArgs(), methodJoinPoint.getThis());
-        return execute(joinPoint,  keyEvaluate, key);
-    }
-
-    public Object execute(ProceedingJoinPoint joinPoint, KeyEvaluate keyEvaluate, String key) throws Throwable {
         TokenBucketFlow tokenBucketFlow = (TokenBucketFlow) keyEvaluate.buildTargetInstance(key);
         try {
             tokenBucketFlow.acquire();

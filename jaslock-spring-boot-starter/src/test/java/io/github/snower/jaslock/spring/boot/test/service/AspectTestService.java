@@ -25,7 +25,7 @@ public class AspectTestService {
         } catch (LockTimeoutException e) {}
     }
 
-    @Lock("AspectTestService_LockWithTransaction_#{@version}_#{#p0}")
+    @LockWithTransaction("AspectTestService_LockWithTransaction_#{@version}_#{#p0}")
     public void testLockWithTransaction(long userid) throws SlockException {
         String key = "AspectTestService_LockWithTransaction_" + version + "_" + userid;
         io.github.snower.jaslock.Lock lock = slockTemplate.newLock(key, 0, 0);
@@ -123,5 +123,77 @@ public class AspectTestService {
             throw new RuntimeException(e);
         }
         return String.valueOf(System.currentTimeMillis());
+    }
+
+    @Locks(value = {@Lock("AspectTestService_Locks_#{@version}_#{#p0}"),
+            @Lock("AspectTestService_Locks_{p0}")})
+    public void testLocks(long userid) throws SlockException {
+        String key = "AspectTestService_Locks_" + version + "_" + userid;
+        io.github.snower.jaslock.Lock lock = slockTemplate.newLock(key, 0, 0);
+        try {
+            lock.acquire();
+            throw new SlockException();
+        } catch (LockTimeoutException e) {}
+
+        key = "AspectTestService_Locks_" + userid;
+        lock = slockTemplate.newLock(key, 0, 0);
+        try {
+            lock.acquire();
+            throw new SlockException();
+        } catch (LockTimeoutException e) {}
+    }
+
+    @LockWithTransactions(value = {@LockWithTransaction("AspectTestService_LockWithTransactions_#{@version}_#{#p0}"),
+            @LockWithTransaction("AspectTestService_LockWithTransactions_{p0}")})
+    public void testLockWithTransactions(long userid) throws SlockException {
+        String key = "AspectTestService_LockWithTransactions_" + version + "_" + userid;
+        io.github.snower.jaslock.Lock lock = slockTemplate.newLock(key, 0, 0);
+        try {
+            lock.acquire();
+            throw new SlockException();
+        } catch (LockTimeoutException e) {}
+
+        key = "AspectTestService_LockWithTransactions_" + userid;
+        lock = slockTemplate.newLock(key, 0, 0);
+        try {
+            lock.acquire();
+            throw new SlockException();
+        } catch (LockTimeoutException e) {}
+    }
+
+    @MaxConcurrentFlows(value = {@MaxConcurrentFlow("AspectTestService_MaxConcurrentFlows_#{@version}_#{#p0}"),
+            @MaxConcurrentFlow("AspectTestService_MaxConcurrentFlows_{p0}")})
+    public void testMaxConcurrentFlows(long userid) throws SlockException {
+        String key = "AspectTestService_MaxConcurrentFlows_" + version + "_" + userid;
+        io.github.snower.jaslock.Lock lock = slockTemplate.newLock(key, 0, 0);
+        try {
+            lock.acquire();
+            throw new SlockException();
+        } catch (LockTimeoutException e) {}
+
+        key = "AspectTestService_MaxConcurrentFlows_" + userid;
+        lock = slockTemplate.newLock(key, 0, 0);
+        try {
+            lock.acquire();
+            throw new SlockException();
+        } catch (LockTimeoutException e) {}
+    }
+
+    @TokenBucketFlows(value = {@TokenBucketFlow("AspectTestService_TokenBucketFlows_#{@version}_#{#p0}"),
+            @TokenBucketFlow("AspectTestService_TokenBucketFlows_{p0}")})
+    public void testTokenBucketFlows(long userid) throws SlockException {
+        String key = "AspectTestService_TokenBucketFlow_" + version + "_" + userid;
+        io.github.snower.jaslock.Lock lock = slockTemplate.newLock(key, 0, 0);
+        try {
+            lock.acquire();
+            throw new SlockException();
+        } catch (LockTimeoutException e) {}
+
+        key = "AspectTestService_TokenBucketFlow_" + userid;
+        lock = slockTemplate.newLock(key, 0, 0);
+        try {
+            lock.acquire();
+            throw new SlockException();
+        } catch (LockTimeoutException e) {}
     }
 }

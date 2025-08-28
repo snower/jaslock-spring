@@ -72,4 +72,33 @@ public class SlockAutoConfiguration {
     public IdempotentAspect idempotentAspect(SlockTemplate slockTemplate, SlockSerializater slockSerializater) {
         return new IdempotentAspect(slockTemplate, slockSerializater);
     }
+
+    @ConditionalOnBean(SlockTemplate.class)
+    @ConditionalOnMissingBean
+    @Bean
+    public LocksAspect locksAspect(SlockTemplate slockTemplate) {
+        return new LocksAspect(slockTemplate);
+    }
+
+    @ConditionalOnClass(TransactionSynchronizationManager.class)
+    @ConditionalOnBean(SlockTemplate.class)
+    @ConditionalOnMissingBean
+    @Bean
+    public LockWithTransactionsAspect lockWithTransactionsAspect(SlockTemplate slockTemplate) {
+        return new LockWithTransactionsAspect(slockTemplate);
+    }
+
+    @ConditionalOnBean(SlockTemplate.class)
+    @ConditionalOnMissingBean
+    @Bean
+    public MaxConcurrentFlowsAspect maxConcurrentFlowsAspect(SlockTemplate slockTemplate) {
+        return new MaxConcurrentFlowsAspect(slockTemplate);
+    }
+
+    @ConditionalOnBean(SlockTemplate.class)
+    @ConditionalOnMissingBean
+    @Bean
+    public TokenBucketFlowsAspect tokenBucketFlowsAspect(SlockTemplate slockTemplate) {
+        return new TokenBucketFlowsAspect(slockTemplate);
+    }
 }

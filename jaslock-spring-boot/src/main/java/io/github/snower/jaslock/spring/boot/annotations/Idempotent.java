@@ -20,7 +20,15 @@ public @interface Idempotent {
 
     int expried() default 300;
 
+    int persistence() default 300;
+
     byte databaseId() default -1;
+
+    int timeoutFlag() default 0;
+
+    int expriedFlag() default 0;
+
+    int persistenceFlag() default 0;
 
     Class<? extends Exception> timeoutException() default LockTimeoutException.class;
 

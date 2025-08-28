@@ -23,6 +23,7 @@ import java.lang.reflect.Parameter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public abstract class AbstractBaseAspect implements BeanFactoryAware, ApplicationContextAware {
     protected final static StandardReflectionParameterNameDiscoverer parameterNameDiscoverer = new StandardReflectionParameterNameDiscoverer();
@@ -75,19 +76,21 @@ public abstract class AbstractBaseAspect implements BeanFactoryAware, Applicatio
     }
 
     protected KeyEvaluate compileKeyEvaluate(Method method, String templateKey) {
-        return keyEvaluateCache.computeIfAbsent(method, k -> {
-            for (int i = 0; i < templateKey.length(); i++) {
-                char c = templateKey.charAt(i);
-                if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-')
-                    continue;
-                if (c != '{' && c != '}' && c != '.') {
-                    return new SPELKeyEvaluate(parameterNameDiscoverer, applicationContext, applicationEvaluationContext,
-                            spelExpressionParser.parseExpression(templateKey, ParserContext.TEMPLATE_EXPRESSION));
-                }
-                return compileValueGetterKeyEvaluate(method, templateKey);
+        return keyEvaluateCache.computeIfAbsent(method, k -> doCompileKeyEvaluate(method, templateKey));
+    }
+
+    protected KeyEvaluate doCompileKeyEvaluate(Method method, String templateKey) {
+        for (int i = 0; i < templateKey.length(); i++) {
+            char c = templateKey.charAt(i);
+            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-')
+                continue;
+            if (c != '{' && c != '}' && c != '.') {
+                return new SPELKeyEvaluate(parameterNameDiscoverer, applicationContext, applicationEvaluationContext,
+                        spelExpressionParser.parseExpression(templateKey, ParserContext.TEMPLATE_EXPRESSION));
             }
-            return new ConstKeyEvaluate(templateKey);
-        });
+            return compileValueGetterKeyEvaluate(method, templateKey);
+        }
+        return new ConstKeyEvaluate(templateKey);
     }
 
     protected KeyEvaluate compileValueGetterKeyEvaluate(Method method, String templateKey) {
@@ -141,7 +144,9 @@ public abstract class AbstractBaseAspect implements BeanFactoryAware, Applicatio
                             }
 
                             if (argParameter == null) {
-                                throw new IllegalArgumentException("unknown parameter: " + templateKey.substring(startIndex, i));
+                                throw new IllegalArgumentException("unknown parameter: " + templateKey.substring(startIndex, i)
+                                        + ", expected: " + Arrays.stream(parameters).map(Parameter::getName)
+                                        .collect(Collectors.joining(",")));
                             } else if (fieldKey == null) {
                                 valueGetters.add(new IndexValueGetter(argIndex, defaultValue));
                             } else {

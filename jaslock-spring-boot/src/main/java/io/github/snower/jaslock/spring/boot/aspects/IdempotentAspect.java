@@ -3,6 +3,7 @@ package io.github.snower.jaslock.spring.boot.aspects;
 import io.github.snower.jaslock.Lock;
 import io.github.snower.jaslock.commands.ICommand;
 import io.github.snower.jaslock.datas.LockSetData;
+import io.github.snower.jaslock.datas.LockUnsetData;
 import io.github.snower.jaslock.exceptions.LockTimeoutException;
 import io.github.snower.jaslock.exceptions.SlockException;
 import io.github.snower.jaslock.spring.boot.AbstractBaseAspect;
@@ -21,6 +22,8 @@ import org.springframework.core.annotation.Order;
 
 import java.io.*;
 import java.lang.reflect.Method;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Aspect
 @Order(Ordered.HIGHEST_PRECEDENCE + 9000)
@@ -28,6 +31,7 @@ public class IdempotentAspect extends AbstractBaseAspect {
     private static final Logger logger = LoggerFactory.getLogger(IdempotentAspect.class);
 
     private final SlockSerializater serializater;
+    private final Map<String, IdempotentEvaluation> idempotentEvaluationCache = new ConcurrentHashMap<>();
 
     public IdempotentAspect(SlockTemplate slockTemplate, SlockSerializater serializater) {
         super(slockTemplate);
@@ -45,7 +49,7 @@ public class IdempotentAspect extends AbstractBaseAspect {
         KeyEvaluate keyEvaluate = keyEvaluateCache.get(method);
         if (keyEvaluate == null) {
             io.github.snower.jaslock.spring.boot.annotations.Idempotent idempotentAnnotation =
-                    methodSignature.getMethod().getAnnotation(io.github.snower.jaslock.spring.boot.annotations.Idempotent.class);
+                    method.getAnnotation(io.github.snower.jaslock.spring.boot.annotations.Idempotent.class);
             if (idempotentAnnotation == null) {
                 throw new IllegalArgumentException("unknown Idempotent annotation");
             }
@@ -58,8 +62,8 @@ public class IdempotentAspect extends AbstractBaseAspect {
             }
             keyEvaluate = compileKeyEvaluate(methodSignature.getMethod(), templateKey);
             keyEvaluate.setTargetParameter(idempotentAnnotation);
-            int timeout = idempotentAnnotation.timeout() | (ICommand.TIMEOUT_FLAG_TIMEOUT_WHEN_CONTAINS_DATA << 16);
-            int expried = idempotentAnnotation.expried();
+            int timeout = idempotentAnnotation.timeout() | (idempotentAnnotation.timeoutFlag() << 16) | (ICommand.TIMEOUT_FLAG_TIMEOUT_WHEN_CONTAINS_DATA << 16);
+            int expried = idempotentAnnotation.expried() | (idempotentAnnotation.expriedFlag() << 16);
             byte databaseId = idempotentAnnotation.databaseId();
             if (databaseId >= 0 && databaseId < 127) {
                 keyEvaluate.setTargetInstanceBuilder(key -> slockTemplate.selectDatabase(databaseId)
@@ -68,25 +72,42 @@ public class IdempotentAspect extends AbstractBaseAspect {
             keyEvaluate.setTargetInstanceBuilder(key -> slockTemplate.newLock((String) key, timeout, expried));
         }
         String key = keyEvaluate.evaluate(methodSignature.getMethod(), methodJoinPoint.getArgs(), methodJoinPoint.getThis());
-        return execute(joinPoint,  keyEvaluate, key);
+        Class<?> resultClass = method.getReturnType();
+        IdempotentEvaluation idempotentEvaluation = idempotentEvaluationCache.computeIfAbsent(key, k -> new IdempotentEvaluation());
+        synchronized (idempotentEvaluation) {
+            if (resultClass.isInstance(idempotentEvaluation.result)) {
+                return idempotentEvaluation.result;
+            }
+            Object result = execute(methodJoinPoint, keyEvaluate, key, resultClass);
+            idempotentEvaluation.result = result;
+            idempotentEvaluationCache.remove(key);
+            return result;
+        }
     }
 
-    public Object execute(ProceedingJoinPoint joinPoint, KeyEvaluate keyEvaluate, String key) throws Throwable {
+    private Object execute(ProceedingJoinPoint joinPoint, KeyEvaluate keyEvaluate, String key, Class<?> resultClass) throws Throwable {
         Lock lock = (Lock) keyEvaluate.buildTargetInstance(key);
         try {
             lock.acquire();
             boolean isUpdateResult = false;
             try {
                 if (lock.getCurrentLockData() != null) {
-                    return getResult(lock);
+                    Object result = getResult(lock, resultClass);
+                    if (result != null) return result;
                 }
                 Object result = joinPoint.proceed();
-                isUpdateResult = updateResult(lock, result);
+                isUpdateResult = updateResult(lock, result, (io.github.snower.jaslock.spring.boot.annotations.Idempotent) keyEvaluate.getTargetParameter());
                 return result;
             } finally {
                 if (!isUpdateResult) {
+                    io.github.snower.jaslock.spring.boot.annotations.Idempotent idempotentAnnotation =
+                            (io.github.snower.jaslock.spring.boot.annotations.Idempotent) keyEvaluate.getTargetParameter();
                     try {
-                        lock.release();
+                        if (idempotentAnnotation.persistence() <= 0) {
+                            lock.release(new LockUnsetData(ICommand.LOCK_DATA_FLAG_PROCESS_FIRST_OR_LAST));
+                        } else {
+                            lock.release();
+                        }
                     } catch (Exception e) {
                         logger.warn("IdempotentAspect release {} error {}", key, e, e);
                     }
@@ -94,7 +115,7 @@ public class IdempotentAspect extends AbstractBaseAspect {
             }
         } catch (LockTimeoutException e) {
             if (lock.getCurrentLockData() != null) {
-                return getResult(lock);
+                return getResult(lock, resultClass);
             }
             io.github.snower.jaslock.spring.boot.annotations.Idempotent idempotentAnnotation =
                     (io.github.snower.jaslock.spring.boot.annotations.Idempotent) keyEvaluate.getTargetParameter();
@@ -116,36 +137,27 @@ public class IdempotentAspect extends AbstractBaseAspect {
         }
     }
 
-    private boolean updateResult(Lock lock, Object result) throws IOException, SlockException {
-        IdempotentResult idempotentResult = new IdempotentResult(result);
-        lock.setExpriedFlag((short) (lock.getExpriedFlag() | ((short) ICommand.EXPRIED_FLAG_ZEOR_AOF_TIME)));
-        lock.releaseHeadRetoLockWait(new LockSetData(serializater.serializate(idempotentResult)));
+    private boolean updateResult(Lock lock, Object result, io.github.snower.jaslock.spring.boot.annotations.Idempotent idempotent) throws IOException, SlockException {
+        if (idempotent.persistence() <= 0) {
+            lock.release(new LockSetData(serializater.serializate(result)));
+        } else {
+            lock.setExpried((short) idempotent.persistence());
+            lock.setExpriedFlag((short) idempotent.persistenceFlag());
+            lock.releaseHeadRetoLockWait(new LockSetData(serializater.serializate(result)));
+        }
         return true;
     }
 
-    private Object getResult(Lock lock) throws IOException, ClassNotFoundException {
+    private Object getResult(Lock lock, Class<?> resultClass) throws IOException {
         if (lock.getCurrentLockData() == null) return null;
         byte[] lockData = lock.getCurrentLockData().getDataAsBytes();
         if (lockData == null) return null;
-        Object idempotentResult = serializater.deserialize(lockData, IdempotentResult.class);
-        if (!(idempotentResult instanceof IdempotentResult)) return null;
-        return ((IdempotentResult) idempotentResult).getResult();
+        Object idempotentResult = serializater.deserialize(lockData, resultClass);
+        if (!resultClass.isInstance(idempotentResult)) return null;
+        return idempotentResult;
     }
 
-    private static class IdempotentResult implements Serializable {
-        private static final long serialVersionUID = 1L;
+    public static class IdempotentEvaluation {
         private Object result;
-
-        public IdempotentResult(Object result) {
-            this.result = result;
-        }
-
-        public void setResult(Object result) {
-            this.result = result;
-        }
-
-        public Object getResult() {
-            return result;
-        }
     }
 }

@@ -51,8 +51,8 @@ public class MaxConcurrentFlowAspect extends AbstractBaseAspect {
             }
             keyEvaluate = compileKeyEvaluate(methodSignature.getMethod(), templateKey);
             keyEvaluate.setTargetParameter(maxConcurrentFlowAnnotation);
-            int timeout = maxConcurrentFlowAnnotation.timeout();
-            int expried = maxConcurrentFlowAnnotation.expried();
+            int timeout = maxConcurrentFlowAnnotation.timeout() | (maxConcurrentFlowAnnotation.timeoutFlag() << 16);
+            int expried = maxConcurrentFlowAnnotation.expried() | (maxConcurrentFlowAnnotation.expriedFlag() << 16);
             short count = maxConcurrentFlowAnnotation.count();
             byte databaseId = maxConcurrentFlowAnnotation.databaseId();
             if (databaseId >= 0 && databaseId < 127) {
@@ -62,10 +62,6 @@ public class MaxConcurrentFlowAspect extends AbstractBaseAspect {
             keyEvaluate.setTargetInstanceBuilder(key -> slockTemplate.newMaxConcurrentFlow((String) key, count, timeout, expried));
         }
         String key = keyEvaluate.evaluate(methodSignature.getMethod(), methodJoinPoint.getArgs(), methodJoinPoint.getThis());
-        return execute(joinPoint,  keyEvaluate, key);
-    }
-
-    public Object execute(ProceedingJoinPoint joinPoint, KeyEvaluate keyEvaluate, String key) throws Throwable {
         MaxConcurrentFlow maxConcurrentFlow = (MaxConcurrentFlow) keyEvaluate.buildTargetInstance(key);
         try {
             maxConcurrentFlow.acquire();

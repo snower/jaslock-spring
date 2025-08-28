@@ -37,7 +37,8 @@ public class LockAspect extends AbstractBaseAspect {
         Method method = methodSignature.getMethod();
         KeyEvaluate keyEvaluate = keyEvaluateCache.get(method);
         if (keyEvaluate == null) {
-            io.github.snower.jaslock.spring.boot.annotations.Lock lockAnnotation = methodSignature.getMethod().getAnnotation(io.github.snower.jaslock.spring.boot.annotations.Lock.class);
+            io.github.snower.jaslock.spring.boot.annotations.Lock lockAnnotation =
+                    method.getAnnotation(io.github.snower.jaslock.spring.boot.annotations.Lock.class);
             if (lockAnnotation == null) {
                 throw new IllegalArgumentException("unknown Lock annotation");
             }
@@ -50,8 +51,8 @@ public class LockAspect extends AbstractBaseAspect {
             }
             keyEvaluate = compileKeyEvaluate(methodSignature.getMethod(), templateKey);
             keyEvaluate.setTargetParameter(lockAnnotation);
-            int timeout = lockAnnotation.timeout();
-            int expried = lockAnnotation.expried();
+            int timeout = lockAnnotation.timeout() | (lockAnnotation.timeoutFlag() << 16);
+            int expried = lockAnnotation.expried() | (lockAnnotation.expriedFlag() << 16);
             byte databaseId = lockAnnotation.databaseId();
             if (databaseId >= 0 && databaseId < 127) {
                 keyEvaluate.setTargetInstanceBuilder(key -> slockTemplate.selectDatabase(databaseId)
@@ -60,10 +61,6 @@ public class LockAspect extends AbstractBaseAspect {
             keyEvaluate.setTargetInstanceBuilder(key -> slockTemplate.newLock((String) key, timeout, expried));
         }
         String key = keyEvaluate.evaluate(methodSignature.getMethod(), methodJoinPoint.getArgs(), methodJoinPoint.getThis());
-        return execute(joinPoint,  keyEvaluate, key);
-    }
-
-    public Object execute(ProceedingJoinPoint joinPoint, KeyEvaluate keyEvaluate, String key) throws Throwable {
         Lock lock = (Lock) keyEvaluate.buildTargetInstance(key);
         try {
             lock.acquire();

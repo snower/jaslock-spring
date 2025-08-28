@@ -24,6 +24,8 @@ public @interface TokenBucketFlow {
 
     byte databaseId() default -1;
 
+    int timeoutFlag() default 0;
+
     Class<? extends Exception> timeoutException() default LockTimeoutException.class;
 
     Class<? extends Exception> exception() default SlockException.class;

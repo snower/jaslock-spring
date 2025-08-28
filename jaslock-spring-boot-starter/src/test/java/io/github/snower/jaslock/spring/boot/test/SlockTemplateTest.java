@@ -139,6 +139,8 @@ public class SlockTemplateTest {
         aspectTestService.testLockConstKey(1);
         aspectTestService.testLockFastKey(1);
         aspectTestService.testLockFastKey(1);
+        aspectTestService.testLocks(1);
+        aspectTestService.testLocks(1);
     }
     @Test
     public void testLockWithTransaction() throws SlockException {
@@ -146,6 +148,8 @@ public class SlockTemplateTest {
         aspectTestService.testLockWithTransaction(1);
         aspectTestService.testLockWithTransactionFastKey(1);
         aspectTestService.testLockWithTransactionFastKey(1);
+        aspectTestService.testLockWithTransactions(1);
+        aspectTestService.testLockWithTransactions(1);
     }
 
 
@@ -155,6 +159,8 @@ public class SlockTemplateTest {
         aspectTestService.testMaxConcurrentFlow(1);
         aspectTestService.testMaxConcurrentFlowFastKey(1);
         aspectTestService.testMaxConcurrentFlowFastKey(1);
+        aspectTestService.testMaxConcurrentFlows(1);
+        aspectTestService.testMaxConcurrentFlows(1);
     }
 
     @Test
@@ -163,6 +169,8 @@ public class SlockTemplateTest {
         aspectTestService.testTokenBucketFlow(1);
         aspectTestService.testTokenBucketFlowFastKey(1);
         aspectTestService.testTokenBucketFlowFastKey(1);
+        aspectTestService.testTokenBucketFlows(1);
+        aspectTestService.testTokenBucketFlows(1);
     }
 
     @Test
