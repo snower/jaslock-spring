@@ -49,16 +49,18 @@ public class LockAspect extends AbstractBaseAspect {
                     throw new IllegalArgumentException("key is empty");
                 }
             }
-            keyEvaluate = compileKeyEvaluate(methodSignature.getMethod(), templateKey);
-            keyEvaluate.setTargetParameter(lockAnnotation);
-            int timeout = lockAnnotation.timeout() | (lockAnnotation.timeoutFlag() << 16);
-            int expried = lockAnnotation.expried() | (lockAnnotation.expriedFlag() << 16);
-            byte databaseId = lockAnnotation.databaseId();
-            if (databaseId >= 0 && databaseId < 127) {
-                keyEvaluate.setTargetInstanceBuilder(key -> slockTemplate.selectDatabase(databaseId)
-                        .newLock((String) key, timeout, expried));
-            }
-            keyEvaluate.setTargetInstanceBuilder(key -> slockTemplate.newLock((String) key, timeout, expried));
+            keyEvaluate = compileKeyEvaluate(methodSignature.getMethod(), templateKey, ke -> {
+                ke.setTargetParameter(lockAnnotation);
+                int timeout = lockAnnotation.timeout() | (lockAnnotation.timeoutFlag() << 16);
+                int expried = lockAnnotation.expried() | (lockAnnotation.expriedFlag() << 16);
+                byte databaseId = lockAnnotation.databaseId();
+                if (databaseId >= 0 && databaseId < 127) {
+                    ke.setTargetInstanceBuilder(key -> slockTemplate.selectDatabase(databaseId)
+                            .newLock((String) key, timeout, expried));
+                }
+                ke.setTargetInstanceBuilder(key -> slockTemplate.newLock((String) key, timeout, expried));
+                return ke;
+            });
         }
         String key = keyEvaluate.evaluate(methodSignature.getMethod(), methodJoinPoint.getArgs(), methodJoinPoint.getThis());
         Lock lock = (Lock) keyEvaluate.buildTargetInstance(key);

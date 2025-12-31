@@ -12,7 +12,12 @@ public abstract class AbstractMultiBaseAspect extends AbstractBaseAspect {
     }
 
     protected MultiEvaluates compileKeyEvaluates(Method method, Annotation[] annotations) {
-        return (MultiEvaluates) keyEvaluateCache.computeIfAbsent(method, k -> doCompileKeyEvaluates(method, annotations));
+        return compileKeyEvaluates(method, annotations, null);
+    }
+
+    protected MultiEvaluates compileKeyEvaluates(Method method, Annotation[] annotations, Function<? super MultiEvaluates, ? extends MultiEvaluates> initFunction) {
+        return (MultiEvaluates) keyEvaluateCache.computeIfAbsent(method, k -> initFunction != null ?
+                initFunction.apply(doCompileKeyEvaluates(method, annotations)) : doCompileKeyEvaluates(method, annotations));
     }
 
     protected MultiEvaluates doCompileKeyEvaluates(Method method, Annotation[] annotations) {

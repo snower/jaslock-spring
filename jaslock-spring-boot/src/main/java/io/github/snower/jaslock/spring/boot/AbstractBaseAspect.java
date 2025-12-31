@@ -76,7 +76,12 @@ public abstract class AbstractBaseAspect implements BeanFactoryAware, Applicatio
     }
 
     protected KeyEvaluate compileKeyEvaluate(Method method, String templateKey) {
-        return keyEvaluateCache.computeIfAbsent(method, k -> doCompileKeyEvaluate(method, templateKey));
+        return compileKeyEvaluate(method, templateKey, null);
+    }
+
+    protected KeyEvaluate compileKeyEvaluate(Method method, String templateKey, Function<? super KeyEvaluate, ? extends KeyEvaluate> initFunction) {
+        return keyEvaluateCache.computeIfAbsent(method, k -> initFunction != null ?
+                initFunction.apply(doCompileKeyEvaluate(method, templateKey)) : doCompileKeyEvaluate(method, templateKey));
     }
 
     protected KeyEvaluate doCompileKeyEvaluate(Method method, String templateKey) {

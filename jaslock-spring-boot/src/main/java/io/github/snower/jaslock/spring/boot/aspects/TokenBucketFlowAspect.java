@@ -45,17 +45,19 @@ public class TokenBucketFlowAspect extends AbstractBaseAspect {
                     throw new IllegalArgumentException("key is empty");
                 }
             }
-            keyEvaluate = compileKeyEvaluate(methodSignature.getMethod(), templateKey);
-            keyEvaluate.setTargetParameter(tokenBucketFlowAnnotation);
-            int timeout = tokenBucketFlowAnnotation.timeout() | (tokenBucketFlowAnnotation.timeoutFlag() << 16);
-            double period = tokenBucketFlowAnnotation.period();
-            short count = tokenBucketFlowAnnotation.count();
-            byte databaseId = tokenBucketFlowAnnotation.databaseId();
-            if (databaseId >= 0 && databaseId < 127) {
-                keyEvaluate.setTargetInstanceBuilder(key -> slockTemplate.selectDatabase(databaseId)
-                        .newTokenBucketFlow((String) key, count, timeout, period));
-            }
-            keyEvaluate.setTargetInstanceBuilder(key -> slockTemplate.newTokenBucketFlow((String) key, count, timeout, period));
+            keyEvaluate = compileKeyEvaluate(methodSignature.getMethod(), templateKey, ke -> {
+                ke.setTargetParameter(tokenBucketFlowAnnotation);
+                int timeout = tokenBucketFlowAnnotation.timeout() | (tokenBucketFlowAnnotation.timeoutFlag() << 16);
+                double period = tokenBucketFlowAnnotation.period();
+                short count = tokenBucketFlowAnnotation.count();
+                byte databaseId = tokenBucketFlowAnnotation.databaseId();
+                if (databaseId >= 0 && databaseId < 127) {
+                    ke.setTargetInstanceBuilder(key -> slockTemplate.selectDatabase(databaseId)
+                            .newTokenBucketFlow((String) key, count, timeout, period));
+                }
+                ke.setTargetInstanceBuilder(key -> slockTemplate.newTokenBucketFlow((String) key, count, timeout, period));
+                return ke;
+            });
         }
         String key = keyEvaluate.evaluate(methodSignature.getMethod(), methodJoinPoint.getArgs(), methodJoinPoint.getThis());
         TokenBucketFlow tokenBucketFlow = (TokenBucketFlow) keyEvaluate.buildTargetInstance(key);

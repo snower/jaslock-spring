@@ -49,17 +49,19 @@ public class MaxConcurrentFlowAspect extends AbstractBaseAspect {
                     throw new IllegalArgumentException("key is empty");
                 }
             }
-            keyEvaluate = compileKeyEvaluate(methodSignature.getMethod(), templateKey);
-            keyEvaluate.setTargetParameter(maxConcurrentFlowAnnotation);
-            int timeout = maxConcurrentFlowAnnotation.timeout() | (maxConcurrentFlowAnnotation.timeoutFlag() << 16);
-            int expried = maxConcurrentFlowAnnotation.expried() | (maxConcurrentFlowAnnotation.expriedFlag() << 16);
-            short count = maxConcurrentFlowAnnotation.count();
-            byte databaseId = maxConcurrentFlowAnnotation.databaseId();
-            if (databaseId >= 0 && databaseId < 127) {
-                keyEvaluate.setTargetInstanceBuilder(key -> slockTemplate.selectDatabase(databaseId)
-                        .newMaxConcurrentFlow((String) key, count, timeout, expried));
-            }
-            keyEvaluate.setTargetInstanceBuilder(key -> slockTemplate.newMaxConcurrentFlow((String) key, count, timeout, expried));
+            keyEvaluate = compileKeyEvaluate(methodSignature.getMethod(), templateKey, ke -> {
+                ke.setTargetParameter(maxConcurrentFlowAnnotation);
+                int timeout = maxConcurrentFlowAnnotation.timeout() | (maxConcurrentFlowAnnotation.timeoutFlag() << 16);
+                int expried = maxConcurrentFlowAnnotation.expried() | (maxConcurrentFlowAnnotation.expriedFlag() << 16);
+                short count = maxConcurrentFlowAnnotation.count();
+                byte databaseId = maxConcurrentFlowAnnotation.databaseId();
+                if (databaseId >= 0 && databaseId < 127) {
+                    ke.setTargetInstanceBuilder(key -> slockTemplate.selectDatabase(databaseId)
+                            .newMaxConcurrentFlow((String) key, count, timeout, expried));
+                }
+                ke.setTargetInstanceBuilder(key -> slockTemplate.newMaxConcurrentFlow((String) key, count, timeout, expried));
+                return ke;
+            });
         }
         String key = keyEvaluate.evaluate(methodSignature.getMethod(), methodJoinPoint.getArgs(), methodJoinPoint.getThis());
         MaxConcurrentFlow maxConcurrentFlow = (MaxConcurrentFlow) keyEvaluate.buildTargetInstance(key);

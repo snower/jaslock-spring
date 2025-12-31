@@ -60,16 +60,18 @@ public class IdempotentAspect extends AbstractBaseAspect {
                     throw new IllegalArgumentException("key is empty");
                 }
             }
-            keyEvaluate = compileKeyEvaluate(methodSignature.getMethod(), templateKey);
-            keyEvaluate.setTargetParameter(idempotentAnnotation);
-            int timeout = idempotentAnnotation.timeout() | (idempotentAnnotation.timeoutFlag() << 16) | (ICommand.TIMEOUT_FLAG_TIMEOUT_WHEN_CONTAINS_DATA << 16);
-            int expried = idempotentAnnotation.expried() | (idempotentAnnotation.expriedFlag() << 16);
-            byte databaseId = idempotentAnnotation.databaseId();
-            if (databaseId >= 0 && databaseId < 127) {
-                keyEvaluate.setTargetInstanceBuilder(key -> slockTemplate.selectDatabase(databaseId)
-                        .newLock((String) key, timeout, expried));
-            }
-            keyEvaluate.setTargetInstanceBuilder(key -> slockTemplate.newLock((String) key, timeout, expried));
+            keyEvaluate = compileKeyEvaluate(methodSignature.getMethod(), templateKey,  ke -> {
+                ke.setTargetParameter(idempotentAnnotation);
+                int timeout = idempotentAnnotation.timeout() | (idempotentAnnotation.timeoutFlag() << 16) | (ICommand.TIMEOUT_FLAG_TIMEOUT_WHEN_CONTAINS_DATA << 16);
+                int expried = idempotentAnnotation.expried() | (idempotentAnnotation.expriedFlag() << 16);
+                byte databaseId = idempotentAnnotation.databaseId();
+                if (databaseId >= 0 && databaseId < 127) {
+                    ke.setTargetInstanceBuilder(key -> slockTemplate.selectDatabase(databaseId)
+                            .newLock((String) key, timeout, expried));
+                }
+                ke.setTargetInstanceBuilder(key -> slockTemplate.newLock((String) key, timeout, expried));
+                return ke;
+            });
         }
         String key = keyEvaluate.evaluate(methodSignature.getMethod(), methodJoinPoint.getArgs(), methodJoinPoint.getThis());
         Class<?> resultClass = method.getReturnType();
