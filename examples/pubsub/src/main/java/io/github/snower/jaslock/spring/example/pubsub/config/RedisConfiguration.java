@@ -1,16 +1,13 @@
 package io.github.snower.jaslock.spring.example.pubsub.config;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.CachingConfigurerSupport;
-import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
 @Configuration
-@EnableCaching
-public class RedisConfiguration extends CachingConfigurerSupport {
+public class RedisConfiguration {
     @Value("${spring.redis.host:127.0.0.1}")
     private String host;
 
