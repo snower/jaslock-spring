@@ -26,3 +26,4 @@ jaslock-spring-boot-starter/target/
 hs_err_pid*
 replay_pid*
 .idea
+.codegraph
