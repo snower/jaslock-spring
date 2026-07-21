@@ -27,14 +27,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.util.StringUtils;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.params.SetParams;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -53,7 +52,7 @@ public class PubsubMessageService {
     private SlockTemplate slockTemplate;
 
     @Autowired
-    private JedisPool redisPoolFactory;
+    private StringRedisTemplate redisTemplate;
 
     @Autowired
     private PubsubMessageRepository pubsubMessageRepository;
@@ -69,15 +68,13 @@ public class PubsubMessageService {
             String cacheKey = "notification:pubsub:message:publish:latest:" + messageDto.getTopicKey();
             ObjectId topicId = null;
             Long latestMessageId = null;
-            try (Jedis jedis = redisPoolFactory.getResource()) {
-                String cacheValue = jedis.get(cacheKey);
-                if (StringUtils.hasLength(cacheValue)) {
-                    try {
-                        PublishDto publishDto = objectMapper.readValue(cacheValue, PublishDto.class);
-                        topicId = publishDto.getTopicId();
-                        latestMessageId = publishDto.getLatestMessageId();
-                    } catch (Exception ignored) {
-                    }
+            String cacheValue = redisTemplate.opsForValue().get(cacheKey);
+            if (StringUtils.hasLength(cacheValue)) {
+                try {
+                    PublishDto publishDto = objectMapper.readValue(cacheValue, PublishDto.class);
+                    topicId = publishDto.getTopicId();
+                    latestMessageId = publishDto.getLatestMessageId();
+                } catch (Exception ignored) {
                 }
             }
             if (topicId == null) {
@@ -88,7 +85,7 @@ public class PubsubMessageService {
                 List<PubsubMessage> pubsubMessages = pubsubMessageRepository.getPubsubMessages(topicId, -1L,
                         PageRequest.of(0, 1, Sort.by(Sort.Direction.DESC, "message_id")));
                 if (pubsubMessages != null && !pubsubMessages.isEmpty()) {
-                    latestMessageId = pubsubMessages.get(0).getMessageId();
+                    latestMessageId = pubsubMessages.getFirst().getMessageId();
                 } else {
                     latestMessageId = 0L;
                 }
@@ -102,13 +99,12 @@ public class PubsubMessageService {
             pubsubMessage.setMessageTime(messageDto.getMessageTime() == null ? new Date() : messageDto.getMessageTime());
             pubsubMessage = pubsubMessageRepository.save(pubsubMessage);
 
-            try (Jedis jedis = redisPoolFactory.getResource()) {
-                try {
-                    jedis.set(cacheKey, objectMapper
-                            .writeValueAsString(new PublishDto(topicId, pubsubMessage.getMessageId())), SetParams.setParams().ex(86400));
-                } catch (Exception ignored) {
-                    jedis.del(cacheKey);
-                }
+            try {
+                redisTemplate.opsForValue().set(cacheKey,
+                        objectMapper.writeValueAsString(new PublishDto(topicId, pubsubMessage.getMessageId())),
+                        Duration.ofSeconds(86400));
+            } catch (Exception ignored) {
+                redisTemplate.delete(cacheKey);
             }
 
             byte[] wakeupLockKey = ("notification_pubsub_message_polling_" + messageDto.getTopicKey()).getBytes(StandardCharsets.UTF_8);
@@ -144,15 +140,13 @@ public class PubsubMessageService {
             String cacheKey = "notification:pubsub:message:publish:latest:" + topicKey;
             ObjectId topicId = null;
             Long latestMessageId = null;
-            try (Jedis jedis = redisPoolFactory.getResource()) {
-                String cacheValue = jedis.get(cacheKey);
-                if (StringUtils.hasLength(cacheValue)) {
-                    try {
-                        PublishDto publishDto = objectMapper.readValue(cacheValue, PublishDto.class);
-                        topicId = publishDto.getTopicId();
-                        latestMessageId = publishDto.getLatestMessageId();
-                    } catch (Exception ignored) {}
-                }
+            String cacheValue = redisTemplate.opsForValue().get(cacheKey);
+            if (StringUtils.hasLength(cacheValue)) {
+                try {
+                    PublishDto publishDto = objectMapper.readValue(cacheValue, PublishDto.class);
+                    topicId = publishDto.getTopicId();
+                    latestMessageId = publishDto.getLatestMessageId();
+                } catch (Exception ignored) {}
             }
             if (topicId == null) {
                 PubsubTopic pubsubTopic = pubsubTopicService.getTopic(topicKey);
@@ -164,7 +158,7 @@ public class PubsubMessageService {
             if (latestMessageId == null) {
                 List<PubsubMessage> pubsubMessages = pubsubMessageRepository.getPubsubMessages(topicId, 0L,
                         PageRequest.of(0, 1, Sort.by(Sort.Direction.DESC, "message_id")));
-                latestMessageId = pubsubMessages.get(0).getMessageId();
+                latestMessageId = pubsubMessages.getFirst().getMessageId();
             }
             return new PollStateDto(topicId, clientId, latestMessageId);
         } finally {
@@ -185,15 +179,13 @@ public class PubsubMessageService {
             String cacheKey = "notification:pubsub:message:publish:latest:" + topicKey;
             ObjectId topicId = null;
             Long latestMessageId = null;
-            try (Jedis jedis = redisPoolFactory.getResource()) {
-                String cacheValue = jedis.get(cacheKey);
-                if (StringUtils.hasLength(cacheValue)) {
-                    try {
-                        PublishDto publishDto = objectMapper.readValue(cacheValue, PublishDto.class);
-                        topicId = publishDto.getTopicId();
-                        latestMessageId = publishDto.getLatestMessageId();
-                    } catch (Exception ignored) {}
-                }
+            String cacheValue = redisTemplate.opsForValue().get(cacheKey);
+            if (StringUtils.hasLength(cacheValue)) {
+                try {
+                    PublishDto publishDto = objectMapper.readValue(cacheValue, PublishDto.class);
+                    topicId = publishDto.getTopicId();
+                    latestMessageId = publishDto.getLatestMessageId();
+                } catch (Exception ignored) {}
             }
             if (topicId == null) {
                 PubsubTopic pubsubTopic = pubsubTopicService.getTopic(topicKey);
@@ -207,7 +199,7 @@ public class PubsubMessageService {
                 if (latestMessageId == null) {
                     List<PubsubMessage> pubsubMessages = pubsubMessageRepository.getPubsubMessages(topicId, 0L,
                             PageRequest.of(0, 1, Sort.by(Sort.Direction.DESC, "message_id")));
-                    latestMessageId = pubsubMessages.get(0).getMessageId();
+                    latestMessageId = pubsubMessages.getFirst().getMessageId();
                 }
                 lastMessageId = latestMessageId;
                 return new PollMessageDto(topicId, clientId, new ArrayList<>(), lastMessageId);
@@ -215,7 +207,7 @@ public class PubsubMessageService {
             List<PubsubMessage> pubsubMessages = pubsubMessageRepository.getPubsubMessages(topicId, lastMessageId,
                     PageRequest.of(0, 2000, Sort.by(Sort.Direction.ASC, "message_id")));
             if (!pubsubMessages.isEmpty()) {
-                lastMessageId = pubsubMessages.get(pubsubMessages.size() - 1).getMessageId();
+                lastMessageId = pubsubMessages.getLast().getMessageId();
             }
             return new PollMessageDto(topicId, clientId, pubsubMessages.stream()
                     .map(MessageDto::fromEntity).collect(Collectors.toList()), lastMessageId);

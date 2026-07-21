@@ -19,7 +19,7 @@
 
 - **Spring Boot 4.1.0 / Java 21** —— Web 框架
 - **MongoDB** —— 持久化 `PubsubTopic` 与 `PubsubMessage`
-- **Redis (Jedis 3.3.0)** —— 缓存最新发布位点 `PublishDto(topicId, latestMessageId)`，TTL 1 天，加速热路径
+- **Redis (Spring Data Redis / Lettuce)** —— 缓存最新发布位点 `PublishDto(topicId, latestMessageId)`，TTL 1 天，加速热路径；通过 `StringRedisTemplate` 操作，`RedisCacheManager` 提供 Spring Cache 抽象
 - **RabbitMQ** —— 异步发布任务队列（`PubsubPublishTask` 监听 `queue("pubsub")`）
 - **jaslock-spring-boot-starter 0.1.4** —— 分布式锁 + 事件通知
 - **wvkity/sequence 1.0.0** —— Snowflake 生成订阅者 `clientId`
@@ -83,7 +83,7 @@ examples/pubsub/
 │       ├── PubsubApplication.java            # Spring Boot 入口
 │       ├── config/
 │       │   ├── RabbitConfiguration.java      # RabbitMQ Queue / DirectExchange / Binding
-│       │   └── RedisConfiguration.java       # JedisPool 配置 (CachingConfigurerSupport)
+    │       │   └── RedisConfiguration.java       # @EnableCaching + RedisCacheManager (CachingConfigurerSupport)
 │       ├── controller/
 │       │   ├── api/PubsubController.java      # 订阅端：长轮询 + SSE
 │       │   └── backend/
@@ -341,11 +341,14 @@ waitLock.acquire(r -> {
 # MongoDB（默认 localhost:27017）
 # spring.data.mongodb.uri=mongodb://localhost:27017/pubsub
 
-# Redis
-spring.redis.host=127.0.0.1
-spring.redis.port=6379
-# spring.redis.password=
-# spring.redis.database=0
+# Redis（Spring Data Redis，Lettuce 连接池）
+spring.data.redis.host=127.0.0.1
+spring.data.redis.port=6379
+# spring.data.redis.password=
+# spring.data.redis.database=0
+# spring.data.redis.lettuce.pool.max-active=8
+# spring.data.redis.lettuce.pool.max-idle=8
+# spring.data.redis.lettuce.pool.min-idle=0
 
 # RabbitMQ（默认 localhost:5672, guest/guest）
 # spring.rabbitmq.host=127.0.0.1
